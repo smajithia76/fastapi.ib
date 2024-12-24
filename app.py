@@ -1,3 +1,6 @@
+# To run the server just execute the main function
+# To generate orders, go to D:\dev\repos\tb\ordergenerator and run main.py
+
 import asyncio
 import uvicorn
 from fastapi import FastAPI
@@ -8,6 +11,7 @@ import time
 import IBDataSource
 import threading
 import json
+import pyotp
 
 # package import statement
 from SmartApi import SmartConnect #or from SmartApi.smartConnect import SmartConnect
@@ -51,18 +55,62 @@ class BracketOrderDetail(BaseModel):
     stopLossPrice: float
     takeProfitLimitPrice: float
 
+def getSmartAPI():
+    f = open("d:/tmp/brokers_copy.json")
+    config = json.load(f)
+
+#    discordURL = config['integrations']['discord']
+
+
+    api_key = ''
+    username = ''
+    pwd = ''
+    token = ''
+
+    for broker in config['brokers']:
+        if broker['name'] == 'angel':
+            api_key = broker['apikey']
+            username = broker['clientcode']
+            pwd = broker['mpin']
+            qr_key = broker['qr_key']
+    try:
+        token = qr_key
+        totp = pyotp.TOTP(token).now()
+    except Exception as e:
+        logger.error("Invalid Token: The provided token is not valid.")
+        raise e
+    smartApi = SmartConnect(api_key)
+
+    correlation_id = "abcde"
+    data = smartApi.generateSession(username, pwd, totp)
+
+    if data['status'] == False:
+        logger.error(data)
+        
+    else:
+        # login api call
+        # logger.info(f"You Credentials: {data}")
+        authToken = data['data']['jwtToken']
+        refreshToken = data['data']['refreshToken']
+        # fetch the feedtoken
+        feedToken = smartApi.getfeedToken()
+        # fetch User Profile
+        res = smartApi.getProfile(refreshToken)
+        smartApi.generateToken(refreshToken)
+        res=res['data']['exchanges']
+        print(res)
+        return smartApi
+
 app = FastAPI()
 ib = ib_insync.IB()
 ib.connect('localhost', 7497, clientId=3)
 ibDataSource = IBDataSource.IBDataSource()
-om = OrderManager(ibDataSource.reqOpenOrders())
-ibDataSource.registerOrderListener(om)
 lock = threading.Lock()
+smartAPI = getSmartAPI()
 
-
-# @app.on_event("startup")
-# async def start_tasks():
-#     await ib.connectAsync('localhost', 7497, clientId=3)
+@app.on_event("startup")
+async def start_tasks():
+    await ib.connectAsync('localhost', 7497, clientId=3)
 
 @app.post("/placeOrder")
 async def placeOrder(orderDetail: OrderDetail):
@@ -120,44 +168,11 @@ async def cancelAllOrders():
 #     ib.
 
 if __name__ == '__main__':
+    f = open("d:/tmp/brokers_copy.json")
+    config = json.load(f)
 
-    # api_key = ''
-    # username = ''
-    # pwd = ''
-    # token = ''
+    discordURL = config['integrations']['discord']
 
-    # f = open("d://tmp//brokers.json")
-    # brokers = json.load(f)
-
-    # for broker in brokers['brokers']:
-    #     if broker['name'] == 'angel':
-    #         api_key = broker['apikey']
-    #         username = broker['clientcode']
-    #         pwd = broker['mpin']
-    #         token = broker['totp']
-
-    # smartApi = SmartConnect(api_key)
-    # try:
-    #     totp = pyotp.TOTP(token).now()
-    # except Exception as e:
-    #     logger.error("Invalid Token: The provided token is not valid.")
-    #     raise e
-
-    # correlation_id = "abcde"
-    # data = smartApi.generateSession(username, pwd, totp)
-
-    # if data['status'] == False:
-    #     logger.error(data)
-        
-    # else:
-    #     # login api call
-    #     # logger.info(f"You Credentials: {data}")
-    #     authToken = data['data']['jwtToken']
-    #     refreshToken = data['data']['refreshToken']
-    #     # fetch the feedtoken
-    #     feedToken = smartApi.getfeedToken()
-    #     # fetch User Profile
-    #     res = smartApi.getProfile(refreshToken)
-    #     smartApi.generateToken(refreshToken)
-    #     res=res['data']['exchanges']
+    om = OrderManager(ibDataSource.reqOpenOrders(), discordURL)
+    ibDataSource.registerOrderListener(om)
     uvicorn.run(app)

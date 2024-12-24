@@ -59,11 +59,9 @@ class IBClient(EWrapper, EClient):
                  takeProfitPrice = order.lmtPrice, 
                  stopLossPrice = order.lmtPrice)
         self.__openOrders.append(tbOrder)
-        print("Inside openOrder")
 
     def openOrderEnd(self):
         self.__openOrdersEnd = True
-        print("Inside openOrderEnd")
 
     def reqOpenOrders(self):
         self.reqAllOpenOrders()
@@ -74,21 +72,8 @@ class IBClient(EWrapper, EClient):
         return self.__openOrders
 
     def orderStatus(self, orderId,	status, filled,	remaining, avgFillPrice, permId, parentId, lastFillPrice, clientId,	whyHeld, mktCapPrice ):
-        
-        # dictionary = {"orderId": orderId, 
-        #               "status": status,
-        #               "filled": filled, 
-        #               "remaining": remaining, 
-        #               "avgFillPrice": avgFillPrice, 
-        #               "permId": permId, 
-        #               "parentId": parentId, 
-        #               "lastFillPrice": lastFillPrice,
-        #               "clientId": clientId,	
-        #               "whyHeld": whyHeld, 
-        #               "mktCapPrice": mktCapPrice}
-        
-        #print(dictionary)        
-        
+        super().orderStatus(orderId, status, filled, remaining, avgFillPrice, permId, parentId, lastFillPrice, clientId, whyHeld, mktCapPrice)
+        print(f"OrderId: {orderId}, status: {status}, filled: {filled}")
         order_status = OrderStatus(orderId,
                             status, 
                             filled,	
@@ -102,8 +87,6 @@ class IBClient(EWrapper, EClient):
                             mktCapPrice)
         if self.__listener != None:
             self.__listener.tell(order_status)
-        else:
-            print("Listener is missing")
 
     def __getLimitOrder(self, direction, quantity, limit_price):
         #print("Inside __getMarketOrder")
@@ -114,6 +97,8 @@ class IBClient(EWrapper, EClient):
         order.eTradeOnly = False
         order.firmQuoteOnly = False
         order.lmtPrice = limit_price
+        order.outsideRth - True
+        
         #print(order)
         return order
 
@@ -150,6 +135,7 @@ class IBClient(EWrapper, EClient):
         order.totalQuantity = quantity
         order.eTradeOnly = False
         order.firmQuoteOnly = False
+        order.outsideRth = True
         #print(order)
         return order
 

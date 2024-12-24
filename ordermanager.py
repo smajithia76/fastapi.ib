@@ -1,4 +1,4 @@
-
+import requests
 
 class OrderManager:
 #     angelClient
@@ -7,24 +7,27 @@ class OrderManager:
 #                - sell - order details
 #                        order number
     
-    def __init__(self, openOrders):
+    def __init__(self, openOrders, durl):
         self.ordersMap = {}
         self.parentToChildMap = {}
+        self.discordURL = durl
         for order in openOrders:
             self.ordersMap[order.orderId] = order
             # if order.parentId != 0:
             #     self.parentToChildMap[order.parentId] = [self.parentToChildMap[order.parentId].append(order.orderId)]
 
     def tell(self, orderStatus):
-        print(">>>>>>>>>>>>>>>>>>>>>>>")
         if len(self.ordersMap) > 0:
             order = self.ordersMap[orderStatus.orderId]
             if orderStatus.status == "Filled":
-                print("{} order for {} is filled at avgFillPrice of {} for {} qty".format(order.action, order.instrument, orderStatus.avgFillPrice, orderStatus.filled))
+                self.sendDiscordMsg("{} order for {} is filled at avgFillPrice of {} for {} qty".format(order.action, order.instrument, orderStatus.avgFillPrice, orderStatus.filled))
             if orderStatus.status == "Cancelled":
-                print("{} order for {} is cancelled".format(order.action, order.instrument))
+                self.sendDiscordMsg("{} order for {} is cancelled".format(order.action, order.instrument))
 
-        print("<<<<<<<<<<<<<<<<<<<<<<<")
+    def sendDiscordMsg(self, msg):
+        payload = {"content": msg}
+        response = requests.post(self.discordURL, json=payload)
+        print(response.text)
 
     def addOrders(self, orders):
         
